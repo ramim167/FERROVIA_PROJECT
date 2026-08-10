@@ -1,9 +1,34 @@
-import express from 'express'
-import cors from 'cors'
-import dotenv from 'dotenv'
-dotenv.config()
-const app=express();app.use(cors());app.use(express.json())
-app.get('/api/health',(req,res)=>res.json({success:true,message:'Railway API is running'}))
-app.get('/api/stations',(req,res)=>res.json({success:true,data:['Dhaka','Chattogram','Rajshahi','Khulna','Sylhet']}))
-app.get('/api/trains/search',(req,res)=>res.json({success:true,data:[],message:'Connect this route to the Oracle repository using the supplied database schema.'}))
-app.listen(process.env.PORT||5000,()=>console.log(`API running on http://localhost:${process.env.PORT||5000}`))
+import 'dotenv/config'
+import { createApp } from './app.js'
+import { closeDatabase, initializeDatabase } from './config/database.js'
+
+const port = Number(process.env.PORT || 5000)
+
+async function start() {
+  await initializeDatabase()
+  const app = createApp()
+  const server = app.listen(port, () => {
+    console.log(`FERROVIA API running on http://localhost:${port}`)
+  })
+
+  async function shutdown(signal) {
+    console.log(`\n${signal} received. Closing FERROVIA API...`)
+    server.close(async () => {
+      try {
+        await closeDatabase()
+        process.exit(0)
+      } catch (error) {
+        console.error(error)
+        process.exit(1)
+      }
+    })
+  }
+
+  process.on('SIGINT', () => shutdown('SIGINT'))
+  process.on('SIGTERM', () => shutdown('SIGTERM'))
+}
+
+start().catch((error) => {
+  console.error('Failed to start FERROVIA API:', error)
+  process.exit(1)
+})

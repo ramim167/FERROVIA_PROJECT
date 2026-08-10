@@ -1,16 +1,23 @@
-# React + Vite
+# FERROVIA React Client
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React 19 + Vite frontend for the FERROVIA Oracle railway project.
 
-Currently, two official plugins are available:
+## Run
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+npm install
+npm run dev
+```
 
-## React Compiler
+Default URL: `http://localhost:5173`
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The Vite development server proxies `/api` requests to `http://localhost:5000`, so start the Express backend separately.
 
-## Expanding the Oxlint configuration
+## Main UI areas
+- Home / Book Ticket
+- Track Train
+- Dashboard / My Tickets / Notifications
+- Operator console for OPERATOR/ADMIN
+- Admin operations for ADMIN
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+This client no longer uses mock train/booking/localStorage data for core flows. LocalStorage is used only for the JWT/user session cache and saved-train favorites.
