@@ -1,0 +1,32 @@
+<svg width="1100" height="690" viewBox="0 0 1100 690" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <linearGradient id="sky" x1="120" y1="55" x2="960" y2="620" gradientUnits="userSpaceOnUse"><stop stop-color="#F3FCFA"/><stop offset="1" stop-color="#DFF4F2"/></linearGradient>
+  <linearGradient id="body" x1="330" y1="220" x2="900" y2="500" gradientUnits="userSpaceOnUse"><stop stop-color="#F8FBFC"/><stop offset=".62" stop-color="#DCE8EC"/><stop offset="1" stop-color="#B5CBD2"/></linearGradient>
+  <linearGradient id="navy" x1="430" y1="210" x2="840" y2="460" gradientUnits="userSpaceOnUse"><stop stop-color="#113C50"/><stop offset="1" stop-color="#092A3A"/></linearGradient>
+  <linearGradient id="green" x1="360" y1="360" x2="900" y2="445" gradientUnits="userSpaceOnUse"><stop stop-color="#1DB8A4"/><stop offset="1" stop-color="#087A79"/></linearGradient>
+  <linearGradient id="glass" x1="450" y1="235" x2="810" y2="330" gradientUnits="userSpaceOnUse"><stop stop-color="#BCEAF0"/><stop offset="1" stop-color="#5C9EAD"/></linearGradient>
+  <filter id="shadow" x="220" y="150" width="790" height="450" filterUnits="userSpaceOnUse"><feDropShadow dx="0" dy="26" stdDeviation="24" flood-color="#0A4E5A" flood-opacity=".22"/></filter>
+</defs>
+<circle cx="590" cy="330" r="300" fill="url(#sky)"/>
+<circle cx="872" cy="113" r="74" fill="#F7D794" opacity=".92"/>
+<path d="M0 483C142 381 250 390 378 464C505 538 616 459 733 400C847 343 980 374 1100 465V690H0V483Z" fill="#CAEAE4"/>
+<path d="M0 545C146 455 289 462 427 531C566 601 694 518 816 466C923 420 1026 455 1100 514V690H0V545Z" fill="#9DD8CE" opacity=".8"/>
+<g filter="url(#shadow)">
+  <path d="M270 426C286 331 324 252 398 211C432 192 473 182 521 182H792C850 182 897 216 914 267L961 409C972 444 947 480 910 480H319C285 480 264 458 270 426Z" fill="url(#body)"/>
+  <path d="M396 215C429 198 468 190 514 190H785C826 190 861 212 875 247L900 311H337C352 269 370 233 396 215Z" fill="url(#navy)"/>
+  <path d="M424 226C445 211 472 204 504 204H768C799 204 826 220 840 248L862 294H373C386 265 400 243 424 226Z" fill="url(#glass)"/>
+  <path d="M461 207V295M626 207V295M787 211V295" stroke="#E3F7F8" stroke-width="10" opacity=".9"/>
+  <path d="M306 342H921L940 405H287L306 342Z" fill="url(#green)"/>
+  <path d="M287 405H940L955 451C960 467 948 480 931 480H299C281 480 269 462 275 445L287 405Z" fill="#0D3344"/>
+  <path d="M402 363H804" stroke="#D9FFF8" stroke-width="15" stroke-linecap="round" opacity=".9"/>
+  <rect x="540" y="420" width="154" height="11" rx="5.5" fill="#BEE7E3"/>
+  <circle cx="344" cy="436" r="29" fill="#EAF9F7"/><circle cx="344" cy="436" r="14" fill="#22B7A5"/>
+  <circle cx="881" cy="436" r="29" fill="#EAF9F7"/><circle cx="881" cy="436" r="14" fill="#22B7A5"/>
+  <path d="M353 480L320 534M871 480L908 534" stroke="#193F4F" stroke-width="18" stroke-linecap="round"/>
+</g>
+<path d="M240 536H982" stroke="#244D59" stroke-width="18" stroke-linecap="round"/>
+<path d="M200 566H1017" stroke="#6E8F96" stroke-width="9" stroke-linecap="round"/>
+<path d="M250 603H970" stroke="#9DB2B6" stroke-width="5" stroke-linecap="round" opacity=".8"/>
+<g opacity=".55" stroke="#4F8487" stroke-linecap="round"><path d="M78 540H220" stroke-width="8"/><path d="M35 576H198" stroke-width="8"/><path d="M930 523H1060" stroke-width="8"/></g>
+<g transform="translate(515 322)"><rect width="170" height="28" rx="14" fill="#F9FFFF" opacity=".95"/><text x="85" y="19" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#0B5A62">BANGLADESH RAILWAY</text></g>
+</svg>

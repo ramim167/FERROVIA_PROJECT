@@ -1,0 +1,11 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap');
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;background:#f4f9f8}
+body{margin:0;font-family:Inter,Arial,sans-serif;background:linear-gradient(180deg,#f7fbfa 0%,#f3f8f8 100%);color:#102a32;min-width:320px;overflow-x:hidden}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+a{text-decoration:none;color:inherit}
+::selection{background:#bdeee4;color:#083b59}
+::-webkit-scrollbar{width:10px}
+::-webkit-scrollbar-track{background:#eef5f4}
+::-webkit-scrollbar-thumb{background:#aacdca;border-radius:20px;border:2px solid #eef5f4}

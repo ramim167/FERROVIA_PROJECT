@@ -1,0 +1,150 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import './App.css'
+import Navbar from './components/Navbar'
+import Footer from './components/Footer'
+import SearchBox from './components/SearchBox'
+import { Icon } from './components/Icons'
+import heroTrain from './assets/train-hero-updated.png'
+import { trains } from './data/mockData'
+
+const today = new Date().toISOString().slice(0,10)
+const initialSearch={from:'Dhaka',to:'Chattogram',date:today,passengers:1}
+const money=n=>`৳${Number(n).toLocaleString()}`
+const parseHour=t=>Number(t.split(':')[0])
+
+/* ---------- motion helpers ---------- */
+// Scans for any not-yet-visible `.reveal` elements and fades/slides them in
+// as they enter the viewport. Re-scans whenever `deps` changes (page nav, filters, etc).
+function useReveal(deps=[]){
+ useEffect(()=>{
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const els = document.querySelectorAll('.reveal:not(.visible)')
+  if(reduce){els.forEach(el=>el.classList.add('visible'));return}
+  const io = new IntersectionObserver(entries=>{
+   entries.forEach(entry=>{
+    if(entry.isIntersecting){entry.target.classList.add('visible');io.unobserve(entry.target)}
+   })
+  },{threshold:.12,rootMargin:'0px 0px -40px 0px'})
+  els.forEach(el=>io.observe(el))
+  return ()=>io.disconnect()
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ },deps)
+}
+
+// Animated count-up number, triggers once the element scrolls into view.
+function Counter({value,suffix=''}){
+ const ref=useRef(null),[display,setDisplay]=useState('0')
+ useEffect(()=>{
+  const node=ref.current
+  if(!node) return
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const target=parseFloat(value)
+  const isDecimal = String(value).includes('.')
+  const run=()=>{
+   if(reduce){setDisplay(value);return}
+   const duration=1100,start=performance.now()
+   const tick=now=>{
+    const p=Math.min(1,(now-start)/duration)
+    const eased=1-Math.pow(1-p,3)
+    const val=target*eased
+    setDisplay(isDecimal?val.toFixed(1):Math.round(val).toLocaleString())
+    if(p<1) requestAnimationFrame(tick)
+   }
+   requestAnimationFrame(tick)
+  }
+  const io=new IntersectionObserver(entries=>{
+   entries.forEach(e=>{if(e.isIntersecting){run();io.disconnect()}})
+  },{threshold:.4})
+  io.observe(node)
+  return ()=>io.disconnect()
+ },[value])
+ return <strong ref={ref}>{display}{suffix}</strong>
+}
+
+// Departure-board style step tracker: numerals flip like a split-flap display when a step activates.
+function Steps({step}){return <div className="steps">{['Train','Seats','Passengers','Payment','Ticket'].map((x,i)=><div className={i<=step?'done':''} key={x}><span className={i===step?'flip':''}>{i<step?<Icon name="check" size={15}/>:i+1}</span><b>{x}</b></div>)}</div>}
+
+function App(){
+ const [page,setPage]=useState('home'),[search,setSearch]=useState(initialSearch),[selectedTrain,setSelectedTrain]=useState(null),[selectedClass,setSelectedClass]=useState(null),[seats,setSeats]=useState([]),[passengers,setPassengers]=useState([]),[user,setUser]=useState(()=>JSON.parse(localStorage.getItem('rail-user')||'null')),[authOpen,setAuthOpen]=useState(false),[authMode,setAuthMode]=useState('signin'),[toast,setToast]=useState('')
+ const [bookings,setBookings]=useState(()=>JSON.parse(localStorage.getItem('rail-bookings')||'[]'))
+ const [favorites,setFavorites]=useState(()=>JSON.parse(localStorage.getItem('rail-favorites')||'[]'))
+ const [detailTrain,setDetailTrain]=useState(null)
+ const [searching,setSearching]=useState(false)
+ useEffect(()=>localStorage.setItem('rail-bookings',JSON.stringify(bookings)),[bookings])
+ useEffect(()=>localStorage.setItem('rail-favorites',JSON.stringify(favorites)),[favorites])
+ useEffect(()=>{if(toast){const t=setTimeout(()=>setToast(''),2600);return()=>clearTimeout(t)}},[toast])
+ useReveal([page,searching])
+ const navigate=p=>{setPage(p);window.scrollTo({top:0,behavior:'smooth'})}
+ const doSearch=()=>{if(search.from===search.to){setToast('Departure and arrival stations must be different');return}setSearching(true);navigate('search');setTimeout(()=>setSearching(false),520)}
+ const chooseTrain=(t,c)=>{setSelectedTrain(t);setSelectedClass(c);setSeats([]);navigate('seats')}
+ const seatList=Array.from({length:40},(_,i)=>({id:`${String.fromCharCode(65+Math.floor(i/4))}${i%4+1}`,blocked:[3,9,14,22,27,34].includes(i)}))
+ const toggleSeat=id=>setSeats(s=>s.includes(id)?s.filter(x=>x!==id):s.length<search.passengers?[...s,id]:(setToast(`You can select only ${search.passengers} seat(s)`),s))
+ const continuePassengers=()=>{if(seats.length!==search.passengers){setToast(`Select ${search.passengers} seat(s) first`);return}setPassengers(Array.from({length:search.passengers},(_,i)=>passengers[i]||{name:'',age:'',gender:'MALE'}));navigate('passengers')}
+ const updatePassenger=(i,key,val)=>setPassengers(p=>p.map((x,j)=>j===i?{...x,[key]:val}:x))
+ const toPayment=()=>{if(passengers.some(p=>!p.name||!p.age)){setToast('Complete all passenger information');return}navigate('payment')}
+ const subtotal=(selectedClass?.fare||0)*search.passengers, fee=Math.round(subtotal*.025), total=subtotal+fee
+ const confirmPayment=(e,method)=>{e.preventDefault(); const pnr=`RT${Date.now().toString().slice(-8)}`;const booking={pnr,train:selectedTrain,class:selectedClass,seats,passengers,search,total,status:'CONFIRMED',paymentMethod:method,bookedAt:new Date().toLocaleString()};setBookings(b=>[booking,...b]);localStorage.setItem('last-booking',JSON.stringify(booking));navigate('confirmation')}
+ const cancelBooking=pnr=>{setBookings(bs=>bs.map(b=>b.pnr===pnr?{...b,status:'CANCELLED'}:b));setToast('Cancellation request submitted')}
+ const deleteBooking=pnr=>{setBookings(bs=>bs.filter(b=>b.pnr!==pnr));setToast('Booking removed')}
+ const toggleFavorite=id=>setFavorites(f=>f.includes(id)?f.filter(x=>x!==id):[...f,id])
+ const logout=()=>{setUser(null);localStorage.removeItem('rail-user');setToast('Signed out successfully')}
+ return <div id="root" className="app"><div className="ambient ambient-one"></div><div className="ambient ambient-two"></div><Navbar page={page} navigate={navigate} user={user} onAuth={()=>setAuthOpen(true)} onLogout={logout}/>{toast&&<div className="toast"><Icon name="check" size={16}/>{toast}</div>}
+  <div key={page} className="page-transition">
+  {page==='home'&&<Home search={search} setSearch={setSearch} doSearch={doSearch} navigate={navigate}/>} 
+  {page==='search'&&<SearchPage search={search} setSearch={setSearch} doSearch={doSearch} chooseTrain={chooseTrain} favorites={favorites} toggleFavorite={toggleFavorite} setDetailTrain={setDetailTrain} loading={searching}/>} 
+  {page==='seats'&&<SeatPage train={selectedTrain} cls={selectedClass} search={search} seatList={seatList} seats={seats} toggleSeat={toggleSeat} next={continuePassengers} back={()=>navigate('search')} total={subtotal}/>} 
+  {page==='passengers'&&<PassengerPage passengers={passengers} update={updatePassenger} next={toPayment} back={()=>navigate('seats')} train={selectedTrain} cls={selectedClass} search={search} seats={seats} total={subtotal}/>} 
+  {page==='payment'&&<PaymentPage total={total} subtotal={subtotal} fee={fee} confirm={confirmPayment} back={()=>navigate('passengers')} train={selectedTrain} cls={selectedClass} search={search} seats={seats}/>} 
+  {page==='confirmation'&&<Confirmation navigate={navigate}/>} 
+  {page==='dashboard'&&<Dashboard user={user} bookings={bookings} favorites={favorites} navigate={navigate}/>} 
+  {page==='tickets'&&<Tickets bookings={bookings} navigate={navigate} cancel={cancelBooking} remove={deleteBooking}/>} 
+  {page==='support'&&<Support setToast={setToast}/>} 
+  </div><Footer/>{authOpen&&<AuthModal mode={authMode} setMode={setAuthMode} close={()=>setAuthOpen(false)} login={u=>{setUser(u);localStorage.setItem('rail-user',JSON.stringify(u));setAuthOpen(false);setToast(`Welcome, ${u.name}`)}}/>}
+  {detailTrain&&<TrainDetail train={detailTrain} close={()=>setDetailTrain(null)} choose={c=>{chooseTrain(detailTrain,c);setDetailTrain(null)}}/>}
+ </div>
+}
+
+function Home({search,setSearch,doSearch,navigate}){return <><section className="hero home-hero-clean"><div className="hero-copy"><span className="eyebrow">BANGLADESH RAILWAY E-TICKETING</span><h1>Travel smarter.<br/><em>Arrive inspired.</em></h1><p>Search, compare and reserve your railway journey through a seamless, secure and beautifully simple booking experience.</p><div className="hero-actions"><button className="primary" onClick={doSearch}>Book your journey <Icon name="arrow" size={18}/></button><button className="ghost-button" onClick={()=>navigate('support')}><Icon name="support" size={18}/> Need help?</button></div><div className="hero-badges"><span><Icon name="shield" size={16}/> Secure payment</span><span><Icon name="ticket" size={16}/> Instant e-ticket</span><span><Icon name="support" size={16}/> 24/7 support</span></div></div><div className="train-art hero-visual-card"><div className="hero-orbit"></div><img className="hero-train-image" src={heroTrain} alt="Modern intercity train illustration"/></div></section><div className="search-wrap reveal"><SearchBox search={search} setSearch={setSearch} onSubmit={doSearch}/></div></>}
+
+function SkeletonCard(){return <div className="train-card card skeleton-card"><div className="sk-row sk-w40"></div><div className="sk-row sk-w70" style={{height:34,marginTop:18}}></div><div className="sk-row sk-w100" style={{height:44,marginTop:18}}></div></div>}
+
+function SearchPage({search,setSearch,doSearch,chooseTrain,favorites,toggleFavorite,setDetailTrain,loading}){
+ const [times,setTimes]=useState([]),[types,setTypes]=useState([]),[sort,setSort]=useState('recommended')
+ const filtered=useMemo(()=>{
+  let list=trains.filter(t=>(t.from===search.from&&t.to===search.to)||(!trains.some(x=>x.from===search.from&&x.to===search.to)))
+  if(times.length) list=list.filter(t=>{const h=parseHour(t.depart);return times.some(x=>x==='Morning'?(h>=5&&h<12):x==='Afternoon'?(h>=12&&h<17):x==='Evening'?(h>=17&&h<22):(h>=22||h<5))})
+  if(types.length) list=list.filter(t=>types.some(x=>t.type===x))
+  return [...list].sort((a,b)=>sort==='lowest'?Math.min(...a.classes.map(c=>c.fare))-Math.min(...b.classes.map(c=>c.fare)):sort==='earliest'?a.depart.localeCompare(b.depart):b.rating-a.rating)
+ },[search,times,types,sort])
+ const toggle=(setter,value)=>setter(a=>a.includes(value)?a.filter(x=>x!==value):[...a,value])
+ return <main className="page"><div className="page-title"><span className="eyebrow">FIND YOUR TRAIN</span><h1>Choose the best journey</h1><p>{search.from} to {search.to} • {search.date}</p></div><SearchBox compact search={search} setSearch={setSearch} onSubmit={doSearch}/><div className="results-layout"><aside className="filters card"><div className="filter-title"><h3><Icon name="filter" size={18}/> Filters</h3><button onClick={()=>{setTimes([]);setTypes([])}}>Reset</button></div><label>Departure time</label>{['Morning','Afternoon','Evening','Night'].map(x=><label className="check" key={x}><input type="checkbox" checked={times.includes(x)} onChange={()=>toggle(setTimes,x)}/><span></span>{x}</label>)}<label>Train type</label>{['Intercity','Express','Mail'].map(x=><label className="check" key={x}><input type="checkbox" checked={types.includes(x)} onChange={()=>toggle(setTypes,x)}/><span></span>{x}</label>)}</aside><section className="train-results"><div className="result-top"><div><b>{filtered.length} trains available</b><small>Fares include base ticket price</small></div><select value={sort} onChange={e=>setSort(e.target.value)}><option value="recommended">Recommended</option><option value="lowest">Lowest fare</option><option value="earliest">Earliest departure</option></select></div>{loading?<>{[0,1,2].map(i=><SkeletonCard key={i}/>)}</>:!filtered.length?<div className="empty card reveal visible"><Icon name="search" size={34}/><h2>No matching trains</h2><p>Try clearing your filters or changing the route.</p></div>:filtered.map((t,i)=><article className="train-card card reveal" style={{transitionDelay:`${Math.min(i,6)*60}ms`}} key={t.id}><div className="train-head"><div><span className="train-badge"><Icon name="train" size={23}/></span><h3>{t.name}<small>Train {t.code} • {t.type} • {t.days}</small></h3></div><div className="train-tools"><button className={favorites.includes(t.id)?'favorite active':'favorite'} onClick={()=>toggleFavorite(t.id)} title="Save train"><Icon name="heart" size={19}/></button><span className="rating"><Icon name="star" size={15}/> {t.rating}</span></div></div><div className="timeline"><div><b>{t.depart}</b><span>{t.from}</span></div><div className="duration"><span><Icon name="clock" size={14}/>{t.duration}</span><i></i><small>Direct</small></div><div><b>{t.arrive}</b><span>{t.to}</span></div></div><button className="details-link" onClick={()=>setDetailTrain(t)}><Icon name="info" size={16}/> View route & train details</button><div className="classes">{t.classes.map(c=><button key={c.code} onClick={()=>chooseTrain(t,c)}><span><b>{c.name}</b><small>{c.available} seats left</small></span><strong>{money(c.fare)}</strong><em>Select <Icon name="chevron" size={15}/></em></button>)}</div></article>)}</section></div></main>}
+
+function Summary({train,cls,search,seats,total}){return <aside className="summary card"><h3>Booking summary</h3><div className="summary-train"><span><Icon name="train" size={23}/></span><div><b>{train?.name}</b><small>{train?.code} • {cls?.name}</small></div></div><dl><dt>Journey</dt><dd>{search.from} → {search.to}</dd><dt>Date</dt><dd>{search.date}</dd><dt>Time</dt><dd>{train?.depart} – {train?.arrive}</dd><dt>Seats</dt><dd>{seats.length?seats.join(', '):'Not selected'}</dd></dl><div className="total"><span>Total fare</span><b>{money(total)}</b></div><div className="summary-safe"><Icon name="shield" size={16}/> Secure booking protection</div></aside>}
+
+function SeatPage({train,cls,search,seatList,seats,toggleSeat,next,back,total}){return <main className="page"><Steps step={1}/><div className="page-title"><span className="eyebrow">SELECT YOUR SEAT</span><h1>{train?.name}</h1><p>{cls?.name} • Choose {search.passengers} seat(s)</p></div><div className="booking-layout"><section className="seat-panel card"><div className="coach-header"><div><b>Coach A</b><span>Front of train →</span></div><div className="legend"><span><i className="available"></i>Available</span><span><i className="selected"></i>Selected</span><span><i className="blocked"></i>Booked</span></div></div><div className="coach"><div className="driver"><Icon name="train" size={26}/></div><div className="seat-grid">{seatList.map((s,i)=><button aria-label={`Seat ${s.id}`} key={s.id} disabled={s.blocked} className={s.blocked?'blocked':seats.includes(s.id)?'selected':''} onClick={()=>toggleSeat(s.id)}>{s.id}{i%4===1&&<span className="aisle"></span>}</button>)}</div></div><div className="actions"><button className="secondary" onClick={back}>← Back</button><button className="primary" onClick={next}>Continue to passengers <Icon name="arrow" size={17}/></button></div></section><Summary train={train} cls={cls} search={search} seats={seats} total={total}/></div></main>}
+
+function PassengerPage({passengers,update,next,back,train,cls,search,seats,total}){return <main className="page"><Steps step={2}/><div className="page-title"><span className="eyebrow">PASSENGER DETAILS</span><h1>Who is travelling?</h1><p>Enter details exactly as shown on identification.</p></div><div className="booking-layout"><section className="passenger-panel card">{passengers.map((p,i)=><div className="passenger-form" key={i}><div className="passenger-number">{i+1}</div><h3>Passenger {i+1}</h3><label>Full name<input value={p.name} onChange={e=>update(i,'name',e.target.value)} placeholder="Passenger full name"/></label><label>Age<input type="number" min="1" max="120" value={p.age} onChange={e=>update(i,'age',e.target.value)} placeholder="Age"/></label><label>Gender<select value={p.gender} onChange={e=>update(i,'gender',e.target.value)}><option>MALE</option><option>FEMALE</option><option>OTHER</option></select></label></div>)}<div className="actions"><button className="secondary" onClick={back}>← Back</button><button className="primary" onClick={next}>Review & payment <Icon name="arrow" size={17}/></button></div></section><Summary train={train} cls={cls} search={search} seats={seats} total={total}/></div></main>}
+
+function PaymentPage({total,subtotal,fee,confirm,back,train,cls,search,seats}){const [method,setMethod]=useState('Mobile Banking');return <main className="page"><Steps step={3}/><div className="page-title"><span className="eyebrow">SECURE CHECKOUT</span><h1>Choose payment method</h1><p>Your seat is held for 10 minutes.</p></div><div className="booking-layout"><form className="payment card" onSubmit={e=>confirm(e,method)}><h3>Payment method</h3><div className="pay-options">{['Mobile Banking','Card','Bank Transfer'].map((x,i)=><label className={method===x?'selected':''} key={x}><input type="radio" name="pay" checked={method===x} onChange={()=>setMethod(x)}/><span>{i===0?'📱':i===1?'💳':'🏦'}</span>{x}<Icon name="check" size={16}/></label>)}</div>{method==='Mobile Banking'&&<><label>Mobile number<input required placeholder="01XXXXXXXXX" pattern="01[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]"/></label><label>Transaction reference<input required placeholder="Demo transaction ID"/></label></>}{method==='Card'&&<><label>Card number<input required inputMode="numeric" placeholder="1234 5678 9012 3456"/></label><div className="form-row"><label>Expiry<input required placeholder="MM/YY"/></label><label>CVV<input required placeholder="123" maxLength="4"/></label></div></>}{method==='Bank Transfer'&&<label>Bank reference<input required placeholder="Transfer reference number"/></label>}<div className="secure-note"><Icon name="shield" size={18}/> This is a semester project demo. No real payment is processed.</div><div className="fare-lines"><span>Ticket fare <b>{money(subtotal)}</b></span><span>Service fee <b>{money(fee)}</b></span><span>Total <b>{money(total)}</b></span></div><div className="actions"><button type="button" className="secondary" onClick={back}>← Back</button><button className="primary">Pay {money(total)} & confirm</button></div></form><Summary train={train} cls={cls} search={search} seats={seats} total={total}/></div></main>}
+
+function Confirmation({navigate}){const b=JSON.parse(localStorage.getItem('last-booking')||'null');if(!b)return <main className="page empty"><h2>No recent booking</h2></main>;const download=()=>{const text=`Railway E-Ticket\nPNR: ${b.pnr}\nTrain: ${b.train.name}\nRoute: ${b.search.from} to ${b.search.to}\nDate: ${b.search.date}\nSeat: ${b.seats.join(', ')}\nFare: ${money(b.total)}`;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'}));a.download=`ticket-${b.pnr}.txt`;a.click();URL.revokeObjectURL(a.href)};return <main className="page"><Steps step={4}/><section className="success card"><div className="success-icon"><Icon name="check" size={30}/></div><span className="eyebrow">BOOKING CONFIRMED</span><h1>Your ticket is ready!</h1><p>A copy has been saved to My Tickets.</p><div className="ticket"><div className="ticket-main"><div className="ticket-brand"><span className="brand-mark"><Icon name="train" size={19}/></span><b>Railway Ticket</b><strong>{b.pnr}</strong></div><h2>{b.train.name}</h2><div className="ticket-route"><div><b>{b.train.depart}</b><span>{b.search.from}</span></div><div className="route-line"><i></i><Icon name="train" size={20}/><i></i></div><div><b>{b.train.arrive}</b><span>{b.search.to}</span></div></div><div className="ticket-info"><span>Date<b>{b.search.date}</b></span><span>Class<b>{b.class.name}</b></span><span>Seat<b>{b.seats.join(', ')}</b></span><span>Fare<b>{money(b.total)}</b></span></div></div><div className="qr">▦<small>Scan ticket</small></div></div><div className="actions center"><button className="secondary" onClick={()=>window.print()}><Icon name="print" size={17}/> Print</button><button className="secondary" onClick={download}><Icon name="download" size={17}/> Download</button><button className="primary" onClick={()=>navigate('tickets')}>View my tickets</button></div></section></main>}
+
+function Dashboard({user,bookings,favorites,navigate}){
+ const confirmed=bookings.filter(b=>b.status==='CONFIRMED'),spent=confirmed.reduce((sum,b)=>sum+b.total,0),next=confirmed[0]
+ return <main className="page dashboard-page"><section className="dashboard-hero"><div><span className="eyebrow">PERSONAL TRAVEL COMMAND CENTER</span><h1>{user?`Welcome back, ${user.name.split(' ')[0]}`:'Your journeys, organized.'}</h1><p>Keep tickets, route preferences and upcoming travel details in one calm, focused workspace.</p><div className="hero-actions"><button className="primary" onClick={()=>navigate('search')}>Plan a new journey <Icon name="arrow" size={18}/></button><button className="secondary" onClick={()=>navigate('tickets')}>Open ticket wallet</button></div></div><div className="dashboard-orb"><Icon name="train" size={62}/><span>SMART RAIL</span></div></section>
+ <section className="metric-grid"><article><span><Icon name="ticket" size={19}/></span><div><small>Confirmed journeys</small><strong>{confirmed.length}</strong></div></article><article><span><Icon name="heart" size={19}/></span><div><small>Saved trains</small><strong>{favorites.length}</strong></div></article><article><span><Icon name="shield" size={19}/></span><div><small>Travel value</small><strong>{money(spent)}</strong></div></article><article><span><Icon name="star" size={19}/></span><div><small>Passenger tier</small><strong>Explorer</strong></div></article></section>
+ <section className="dashboard-grid"><article className="card journey-focus"><div className="section-head"><div><span className="eyebrow">NEXT JOURNEY</span><h2>{next?'Ready for departure':'Nothing scheduled yet'}</h2></div>{next&&<span className="confirmed">CONFIRMED</span>}</div>{next?<><div className="journey-route"><div><b>{next.train.depart}</b><span>{next.search.from}</span></div><div className="journey-line"><i></i><Icon name="train" size={22}/><i></i></div><div><b>{next.train.arrive}</b><span>{next.search.to}</span></div></div><div className="journey-meta"><span>Date<b>{next.search.date}</b></span><span>Train<b>{next.train.name}</b></span><span>Seat<b>{next.seats.join(', ')}</b></span><span>PNR<b>{next.pnr}</b></span></div><button className="text-btn" onClick={()=>navigate('tickets')}>View complete ticket <Icon name="arrow" size={16}/></button></>:<div className="empty-dashboard"><Icon name="ticket" size={38}/><p>Book a route and your next departure will appear here.</p><button className="primary" onClick={()=>navigate('search')}>Find trains</button></div>}</article>
+ <aside className="card quick-panel"><span className="eyebrow">QUICK ACTIONS</span><h2>Travel toolkit</h2>{[['ticket','Book another ticket','Search schedules and fares','search'],['support','Get support','Find answers or contact us','support'],['download','Ticket wallet','Print and manage bookings','tickets']].map(([icon,title,copy,target])=><button key={title} onClick={()=>navigate(target)}><span><Icon name={icon} size={19}/></span><div><b>{title}</b><small>{copy}</small></div><Icon name="arrow" size={16}/></button>)}<div className="travel-note"><Icon name="shield" size={18}/><p><b>Travel-ready account</b><br/>Your demo data stays securely in this browser.</p></div></aside></section></main>
+}
+
+function Tickets({bookings,navigate,cancel,remove}){const [selected,setSelected]=useState(null);return <main className="page"><div className="page-title"><span className="eyebrow">MY JOURNEYS</span><h1>Tickets & bookings</h1><p>View, print or cancel your reservations.</p></div>{!bookings.length?<div className="empty card"><Icon name="ticket" size={42}/><h2>No tickets yet</h2><p>Your booked journeys will appear here.</p><button className="primary" onClick={()=>navigate('search')}>Book a ticket</button></div>:<div className="ticket-list">{bookings.map(b=><article className="booking-card card" key={b.pnr}><div className="booking-status"><span className={b.status.toLowerCase()}>{b.status}</span><small>PNR {b.pnr}</small></div><div className="booking-main"><div><h3>{b.train.name}</h3><p>{b.search.from} → {b.search.to}</p></div><div><b>{b.search.date}</b><span>{b.train.depart} – {b.train.arrive}</span></div><div><b>{b.class.name}</b><span>Seat {b.seats.join(', ')}</span></div><div><b>{money(b.total)}</b><span>{b.passengers.length} passenger(s)</span></div></div><div className="booking-actions"><button onClick={()=>setSelected(b)}><Icon name="eye" size={16}/> View</button><button onClick={()=>window.print()}><Icon name="print" size={16}/> Print</button>{b.status==='CONFIRMED'&&<button className="danger-text" onClick={()=>cancel(b.pnr)}>Cancel</button>}{b.status==='CANCELLED'&&<button className="danger-text" onClick={()=>remove(b.pnr)}><Icon name="trash" size={16}/> Remove</button>}</div></article>)}</div>}{selected&&<BookingModal booking={selected} close={()=>setSelected(null)}/>}</main>}
+
+function Support({setToast}){const [query,setQuery]=useState('');const faq=['How do I book a ticket?','Can I change my travel date?','How long does a refund take?','Where can I find my PNR?'];return <main className="page"><div className="page-title"><span className="eyebrow">WE ARE HERE TO HELP</span><h1>How can we help you?</h1><p>Find quick answers or send us a message.</p></div><div className="support-search card"><Icon name="search" size={20}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search help articles..."/></div><div className="support-grid"><section className="card faq"><h2>Frequently asked questions</h2>{faq.filter(q=>q.toLowerCase().includes(query.toLowerCase())).map((q,i)=><details key={q} open={i===0}><summary>{q}</summary><p>{i===0?'Search a route, choose a train and class, select seats, add passenger details and complete the demo payment.':'Please contact support with your PNR. Policies depend on the booking status and railway rules.'}</p></details>)}</section><form className="card contact" onSubmit={e=>{e.preventDefault();e.currentTarget.reset();setToast('Your message has been submitted')}}><h2>Contact support</h2><label>Name<input required placeholder="Your name"/></label><label>Email<input required type="email" placeholder="you@example.com"/></label><label>Topic<select><option>Booking issue</option><option>Payment</option><option>Cancellation / refund</option></select></label><label>Message<textarea required rows="5" placeholder="Tell us how we can help"></textarea></label><button className="primary">Send message <Icon name="arrow" size={17}/></button></form></div></main>}
+
+function AuthModal({mode,setMode,close,login}){return <div className="modal-backdrop" onMouseDown={e=>e.target===e.currentTarget&&close()}><div className="modal"><button className="modal-close" onClick={close}><Icon name="close" size={20}/></button><div className="modal-visual"><span className="brand-mark"><Icon name="train" size={23}/></span><h2>Welcome aboard!</h2><p>Sign in to manage tickets, passengers and refunds.</p><img src={heroTrain} alt="Train"/></div><form onSubmit={e=>{e.preventDefault();login({name:e.currentTarget.name?.value||e.currentTarget.email.value.split('@')[0],email:e.currentTarget.email.value})}}><div className="auth-tabs"><button type="button" className={mode==='signin'?'active':''} onClick={()=>setMode('signin')}>Sign in</button><button type="button" className={mode==='register'?'active':''} onClick={()=>setMode('register')}>Create account</button></div>{mode==='register'&&<label>Full name<input name="name" required placeholder="Your full name"/></label>}<label>Email<input name="email" type="email" required placeholder="you@example.com"/></label><label>Password<input type="password" required minLength="4" placeholder="••••••••"/></label><button className="primary full">{mode==='signin'?'Sign in':'Create account'}</button><small className="demo-note">Demo mode: any valid email and password will work.</small></form></div></div>}
+
+function TrainDetail({train,close,choose}){return <div className="modal-backdrop" onMouseDown={e=>e.target===e.currentTarget&&close()}><div className="detail-modal card"><button className="modal-close" onClick={close}><Icon name="close" size={20}/></button><div className="detail-hero"><span className="train-badge"><Icon name="train" size={24}/></span><div><h2>{train.name}</h2><p>Train {train.code} • {train.type} • {train.days}</p></div><span className="rating"><Icon name="star" size={15}/> {train.rating}</span></div><div className="detail-route"><div><b>{train.depart}</b><span>{train.from}</span></div><div><i></i><Icon name="train" size={20}/><small>{train.duration}</small><i></i></div><div><b>{train.arrive}</b><span>{train.to}</span></div></div><h3>Available classes</h3><div className="detail-classes">{train.classes.map(c=><button key={c.code} onClick={()=>choose(c)}><span><b>{c.name}</b><small>{c.available} seats available</small></span><strong>{money(c.fare)}</strong></button>)}</div></div></div>}
+
+function BookingModal({booking,close}){return <div className="modal-backdrop" onMouseDown={e=>e.target===e.currentTarget&&close()}><div className="detail-modal card"><button className="modal-close" onClick={close}><Icon name="close" size={20}/></button><span className="eyebrow">PNR {booking.pnr}</span><h2>{booking.train.name}</h2><div className="booking-detail-grid"><span>Journey<b>{booking.search.from} → {booking.search.to}</b></span><span>Date<b>{booking.search.date}</b></span><span>Class<b>{booking.class.name}</b></span><span>Seats<b>{booking.seats.join(', ')}</b></span><span>Passengers<b>{booking.passengers.map(p=>p.name).join(', ')}</b></span><span>Total<b>{money(booking.total)}</b></span></div><button className="primary full" onClick={()=>window.print()}><Icon name="print" size={17}/> Print ticket</button></div></div>}
+
+export default App
